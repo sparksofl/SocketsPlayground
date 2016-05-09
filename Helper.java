@@ -1,5 +1,7 @@
 import java.net.*;
 import java.io.*;
+import java.util.Date;
+import java.text.SimpleDateFormat;
 
 public class Helper {
   public final static String ADDRESS = "127.0.0.1";
@@ -26,8 +28,14 @@ public class Helper {
 
       while (in.available() != 0 && line != "") {
         line = in.readUTF();
-        System.out.println("\u001B[1mResponse: \u001B[0m " + line);
-        System.out.print("> ");
+
+        if (line.startsWith("sending")) {
+          System.out.println(line);
+          saveFile(Integer.parseInt(line.split(" ")[1]), line.split(" ")[2], in);
+        } else {
+          System.out.println("\u001B[1mResponse: \u001B[0m " + line);
+          System.out.print("> ");
+        }
       }
     }
   }
@@ -41,6 +49,7 @@ public class Helper {
       int i = 0;
       while (fis.read(buffer) >= 0) {
         System.out.println("\033[3mSending: " + (i * (float) FILE_SIZE / f.length()) * 100.0 + " %");
+        out.write(buffer);
         i++;
       }
       System.out.println("\u001B[32mSending is finished\u001B[0m\033[0m");
@@ -51,7 +60,37 @@ public class Helper {
     System.out.print("> ");
   }
 
+  private static void saveFile(int size, String name, DataInputStream in) throws IOException {
+    String fileName = generateFilename(name.split("\\.")[0], name.split("\\.")[1]);
+
+    try {
+      FileOutputStream fos = new FileOutputStream(FILE_PATH + "/" + fileName);
+      byte[] buffer = new byte[FILE_SIZE];
+
+      int filesize = size; // Send file size in separate msg
+      int read = 0;
+      int totalRead = 0;
+      int remaining = filesize;
+      while ((read = in.read(buffer, 0, Math.min(buffer.length, remaining))) > 0) {
+          totalRead += read;
+          remaining -= read;
+          System.out.println("read " + totalRead + " bytes.");
+          fos.write(buffer, 0, read);
+      }
+      fos.close();
+      System.out.println("\u001B[32m\033[mFile " + fileName
+          + " downloaded (" + filesize + " bytes read)\u001B[0m\033[0m");
+    } catch(IOException e) {
+      System.out.println("\u001B[31m\033[3mAn error occurred while downloading the file: " + e.getMessage() + "\u001B[0m\033[0m");
+    }
+  }
+
   public static String filterString(String s) {
     return s.replaceAll("[^a-zA-Z0-9 ,\'\"?!\\.:;()]","*");
+  }
+
+  public static String generateFilename(String name, String format) {
+    String timestamp = new SimpleDateFormat("yyyyMMddhhmmss").format(new Date());
+    return name + timestamp + "." + format;
   }
 }
